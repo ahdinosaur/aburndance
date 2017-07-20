@@ -15,8 +15,22 @@ first, follow the [Adafruit guide to installing the Arduino IDE for this board](
 
 TODO...
 
+## physical controller
+
+- general brightness
+- microphone sensitivity
+- mode
+  - x-way switch?
+  - up and down buttons?
+  - single next button?
+  - one mode is "auto-cycle modes" (how long per mode)
+
 ## interfaces
 
+- charge value
+- multi-core
+  - how to have one dedicated led message core
+  - how to have other core for audio, wifi, buttons, etc
 - microphones
   - how to i2s: https://github.com/espressif/arduino-esp32/issues/302
 - apa102c leds
@@ -26,7 +40,7 @@ TODO...
 - wireless
   - how to connect to a wifi network
   - how to create a mesh (bluetooth)
-- physical buttons and interfaces
+- buttons and physical interfaces
 
 ## use cases
 
@@ -46,3 +60,6 @@ TODO...
     - controller at tip top
     - strips going down each side
 
+## power
+
+what is the power usage?
