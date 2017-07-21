@@ -1,4 +1,4 @@
-# esp32-feather-pixels
+# paddock-pixels
 
 ## hardware
 
