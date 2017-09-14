@@ -3,6 +3,7 @@
 ## hardware
 
 [Adafruit HUZZAH32 – ESP32 Feather Board](https://www.adafruit.com/product/3405)
+[Pinouts](https://learn.adafruit.com/adafruit-huzzah32-esp32-feather/pinouts)
 
 ## resources
 
@@ -41,6 +42,9 @@ TODO...
   - how to connect to a wifi network
   - how to create a mesh (bluetooth)
 - buttons and physical interfaces
+  - rotary encoder
+    - hardware debouncer if we want to save on cpu cycles: http://forum.arduino.cc/index.php/topic,2378.0.html
+    - background reading: http://www.all-electric.com/schematic/debounce.htm
 
 ## use cases
 
