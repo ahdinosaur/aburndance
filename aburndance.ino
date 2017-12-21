@@ -2,8 +2,8 @@
 #include "FastLED.h"
 #include "LinkedList.h"
 
-#define NUM_LEDS 60 * 2
-#define FRAMES_PER_SECOND 120
+#define NUM_LEDS (60*2)
+#define FRAMES_PER_SECOND 60
 
 #define LED_DATA_PIN 25
 #define LED_CLOCK_PIN 26
@@ -14,8 +14,15 @@
 
 //
 // FastLED provides these pre-conigured incandescent color profiles:
-//     Candle, Tungsten40W, Tungsten100W, Halogen, CarbonArc,
-//     HighNoonSun, DirectSunlight, OvercastSky, ClearBlueSky,
+//   - Candle: 1900K
+//   - Tungsten40W: 2850K
+//   - Tungsten100W: 2850K
+//   - Halogen: 3200K
+//   - CarbonArc: 5200K
+//   - HighNoonSun: 5400K
+//   - DirectSunlight: 6000K
+//   - OvercastSky: 7000K
+//   - ClearBlueSky: 20000K
 // FastLED provides these pre-configured gaseous-light color profiles:
 //     WarmFluorescent, StandardFluorescent, CoolWhiteFluorescent,
 //     FullSpectrumFluorescent, GrowLightFluorescent, BlackLightFluorescent,
@@ -23,16 +30,16 @@
 // FastLED also provides an "Uncorrected temperature" profile
 //    UncorrectedTemperature;
 
-#define LED_COLOR_TEMPERATURE DirectSunlight
+#define LED_COLOR_TEMPERATURE Candle
 
 #define MODE_BUTTON_PIN 4
 
 CRGB leds[NUM_LEDS];
 
-Encoder encoderA(32, 14);
-Encoder encoderB(15, 33);
-Encoder encoderC(27, 21);
-Encoder encoderD(12, 13);
+Encoder encoder_a(32, 14);
+Encoder encoder_b(15, 33);
+Encoder encoder_c(27, 21);
+Encoder encoder_d(12, 13);
  
 void setup () {
   // sanity check delay - allows reprogramming if accidently blowing power w/leds
@@ -42,7 +49,7 @@ void setup () {
   FastLED.setCorrection(LED_COLOR_CORRECTION);
   FastLED.setTemperature(LED_COLOR_TEMPERATURE);
   FastLED.setMaxRefreshRate(FRAMES_PER_SECOND);
-  FastLED.countFPS(25);
+  FastLED.countFPS(30);
 
   pinMode(MODE_BUTTON_PIN, INPUT_PULLUP);
 
@@ -50,12 +57,12 @@ void setup () {
   Serial.println("Start");
 }
 
-int16_t paramA = 0;
-int16_t paramB = 0;
-int16_t paramC = 0;
-int16_t paramD = 0;
+int16_t param_a = 0;
+int16_t param_b = 0;
+int16_t param_c = 0;
+int16_t param_d = 0;
 
-uint8_t brightness = 0;
+uint8_t brightness = 128;
 
 uint8_t num_modes = 2;
 uint8_t mode_index = 0;
@@ -68,7 +75,7 @@ void loop () {
   read_mode();
   read_encoders();
   
-  brightness = get_brightness(paramD);
+  brightness = get_brightness(param_d);
   LEDS.setBrightness(brightness);
   
   run_mode();
@@ -88,44 +95,39 @@ void read_mode () {
 }
 
 void read_encoders () {
-  int16_t newParamA = encoderA.read();
-  int16_t newParamB = encoderB.read();
-  int16_t newParamC = encoderC.read();
-  int16_t newParamD = encoderD.read();
-  if (
-    newParamA != paramA ||
-    newParamB != paramB ||
-    newParamC != paramC ||
-    newParamD != paramD
-   ) {
-    paramA = constrain(newParamA, 0, 256);
-    paramB = constrain(newParamB, 0, 256);
-    paramC = constrain(newParamC, 0, 256);
-    paramD = constrain(newParamD, 0, 256);
-    encoderA.write(paramA);
-    encoderB.write(paramB);
-    encoderC.write(paramC);
-    encoderD.write(paramD);
-    Serial.print("A = ");
-    Serial.print(paramA);
-    Serial.print(", B = ");
-    Serial.print(paramB);
-    Serial.print(", C = ");
-    Serial.print(paramC);
-    Serial.print(", D = ");
-    Serial.print(paramD);
-    Serial.println();
-
+  int16_t new_param_a = encoder_a.read();
+  if (new_param_a != param_a) {
+     param_a = constrain(new_param_a, 0, 256);
+     encoder_a.write(param_a);
+     Serial.print("param a = ");
+     Serial.print(param_a);
+     Serial.println();
+  }
+  int16_t new_param_b = encoder_b.read();
+  if (new_param_b != param_b) {
+     param_b = constrain(new_param_b, 0, 256);
+     encoder_b.write(param_b);
+     Serial.print("param b = ");
+     Serial.print(param_b);
+     Serial.println();
+  }
+  int16_t new_param_c = encoder_c.read();
+  if (new_param_c != param_c) {
+     param_c = constrain(new_param_c, 0, 256);
+     encoder_c.write(param_c);
+     Serial.print("param c = ");
+     Serial.print(param_c);
+     Serial.println();
   }
   // if a character is sent from the serial monitor,
   // reset both back to zero.
   if (Serial.available()) {
     Serial.read();
     Serial.println("Reset encoders to zero");
-    encoderA.write(0);
-    encoderB.write(0);
-    encoderC.write(0);
-    encoderD.write(0);
+    encoder_a.write(0);
+    encoder_b.write(0);
+    encoder_c.write(0);
+    encoder_d.write(0);
   }
 }
 
@@ -138,9 +140,32 @@ uint8_t get_brightness (int16_t param) {
 }
 
 void run_mode () {
-  if (mode_index == 0) {
-    star_field();
+  switch (mode_index) {
+    case 0:
+      rainbow_loop();
+      break;
+    case 1:
+      star_field();
+      break;
   }
+}
+
+uint8_t rainbow_index = 0;
+
+void rainbow_loop () {
+  float speed = mapf(param_a, 0.0, 255.0, 0.1, 10.0);
+  Serial.print("speed: ");
+  Serial.print(speed);
+  Serial.println();
+
+  float zoom = mapl(param_b, 0.0, 255.0, 0.05, 35.0);
+  Serial.print("zoom: ");
+  Serial.print(zoom);
+  Serial.println(); 
+
+  fill_rainbow(leds, NUM_LEDS, rainbow_index, floor(zoom));
+
+  rainbow_index = (rainbow_index + (uint8_t) speed) % 256;
 }
 
 struct Star {
@@ -150,18 +175,18 @@ struct Star {
 LinkedList<Star*> stars = LinkedList<Star*>();
 
 void star_field () {
-  float speed = mapf(paramA, 0.0, 255.0, 0.1, 10.0);
+  float speed = mapf(param_a, 0.0, 255.0, 0.1, 10.0);
   Serial.print("speed: ");
   Serial.print(speed);
   Serial.println();
 
-  float probability_of_new_star = mapf(paramB, 0.0, 255.0, 0.01, 0.25);
+  float probability_of_new_star = mapf(param_b, 0.0, 255.0, 0.01, 0.25);
   Serial.print("probability of new star: ");
   Serial.print(probability_of_new_star);
   Serial.println();
 
-  bool hasNewStar = random_float() < probability_of_new_star;
-  if (hasNewStar) {
+  bool has_new_star = random_float() < probability_of_new_star;
+  if (has_new_star) {
     struct Star* star = (Star*) malloc(sizeof(Star));
     star->index = 0;
     star->color = random_color();
@@ -172,20 +197,19 @@ void star_field () {
   Serial.print(stars.size());
   Serial.println();
 
-
-  int starIndex = 0;
-  while (starIndex < stars.size()) {
-    struct Star* star = stars.get(starIndex);
-    int ledIndex = floor(star->index);
-    if (ledIndex >= NUM_LEDS) {
-      stars.remove(starIndex);
+  int star_index = 0;
+  while (star_index < stars.size()) {
+    struct Star* star = stars.get(star_index);
+    int led_index = floor(star->index);
+    if (led_index >= NUM_LEDS) {
+      stars.remove(star_index);
       free(star);
     } else {
       for (int i = 0; i < speed; i++) {
-        leds[ledIndex + i] = star->color;
+        leds[led_index + i] = star->color;
       }
       star->index += speed;
-      starIndex++;
+      star_index++;
     }
   }
 }
@@ -214,3 +238,13 @@ CRGB random_color () {
 float mapf (float x, float in_min, float in_max, float out_min, float out_max) {
   return (x - in_min) * (out_max - out_min) / (in_max - in_min) + out_min;
 }
+
+float mapl (float x, float in_min, float in_max, float out_min, float out_max) {
+  out_min = log(out_min);
+  out_max = log(out_max);
+
+  float scale = (out_max - out_min) / (in_max - in_min);
+
+  return exp(out_min + scale * (x - in_min));
+}
+
