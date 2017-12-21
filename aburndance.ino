@@ -64,7 +64,7 @@ int16_t param_d = 0;
 
 uint8_t brightness = 128;
 
-uint8_t num_modes = 2;
+uint8_t num_modes = 3;
 uint8_t mode_index = 0;
 
 void loop () {
@@ -147,6 +147,9 @@ void run_mode () {
     case 1:
       star_field();
       break;
+    case 2:
+      convergence();
+      break;
   }
 }
 
@@ -214,11 +217,34 @@ void star_field () {
   }
 }
 
+float convergence_index = 0;
+CRGB convergence_color = random_color();
+uint16_t convergence_midpoint = NUM_LEDS / 2;
+
+void convergence () {
+  float speed = mapl(param_a, 0.0, 255.0, 0.1, 10.0);
+  Serial.print("speed: ");
+  Serial.print(speed);
+  Serial.println();
+
+  if (convergence_index > convergence_midpoint) {
+    convergence_color = random_color();
+    convergence_index = 0;
+  }
+
+  convergence_index += speed;
+
+  fill_solid(leds, convergence_index, convergence_color);
+  fill_solid(leds + (NUM_LEDS - (uint16_t) convergence_index), convergence_index, convergence_color);
+}
+
 void fade_all () {
   for(int i = 0; i < NUM_LEDS; i++) {
     leds[i].nscale8(250);
   }
 }
+
+/* util */
 
 uint8_t random_param () {
   return random(0, 256);
