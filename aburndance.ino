@@ -42,8 +42,8 @@ CRGB leds[NUM_LEDS];
 
 Encoder encoder_a(32, 14);
 Encoder encoder_b(15, 33);
-Encoder encoder_c(27, 21);
-Encoder encoder_d(12, 13);
+Encoder encoder_c(27, 12);
+Encoder encoder_d(13, 21);
  
 void setup () {
   // sanity check delay - allows reprogramming if accidently blowing power w/leds
@@ -67,7 +67,7 @@ int16_t param_b = 0;
 int16_t param_c = 0;
 int16_t param_d = 0;
 
-uint8_t brightness = 128;
+uint8_t brightness = 255;
 
 uint8_t num_modes = 3;
 uint8_t mode_index = 0;
@@ -102,7 +102,7 @@ void read_mode () {
 void read_encoders () {
   int16_t new_param_a = encoder_a.read();
   if (new_param_a != param_a) {
-     param_a = constrain(new_param_a, 0, 256);
+     param_a = constrain(new_param_a, 0, 255);
      encoder_a.write(param_a);
      Serial.print("param a = ");
      Serial.print(param_a);
@@ -110,7 +110,7 @@ void read_encoders () {
   }
   int16_t new_param_b = encoder_b.read();
   if (new_param_b != param_b) {
-     param_b = constrain(new_param_b, 0, 256);
+     param_b = constrain(new_param_b, 0, 255);
      encoder_b.write(param_b);
      Serial.print("param b = ");
      Serial.print(param_b);
@@ -118,10 +118,18 @@ void read_encoders () {
   }
   int16_t new_param_c = encoder_c.read();
   if (new_param_c != param_c) {
-     param_c = constrain(new_param_c, 0, 256);
+     param_c = constrain(new_param_c, 0, 255);
      encoder_c.write(param_c);
      Serial.print("param c = ");
      Serial.print(param_c);
+     Serial.println();
+  }
+  int16_t new_param_d = encoder_d.read();
+  if (new_param_d != param_d) {
+     param_d = constrain(new_param_d, 0, 255);
+     encoder_d.write(param_d);
+     Serial.print("param d = ");
+     Serial.print(param_d);
      Serial.println();
   }
   // if a character is sent from the serial monitor,
