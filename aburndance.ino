@@ -10,6 +10,10 @@
 #define LED_CHIPSET APA102
 #define LED_COLOR_ORDER BGR
 
+#define LED_VOLTAGE 5
+// #define LED_MAX_MILLIAMPS 1750 // maxed by battery
+#define LED_MAX_MILLIAMPS 750 // maxed by power converter
+
 #define LED_COLOR_CORRECTION TypicalSMD5050
 
 //
@@ -50,6 +54,7 @@ void setup () {
   FastLED.setTemperature(LED_COLOR_TEMPERATURE);
   FastLED.setMaxRefreshRate(FRAMES_PER_SECOND);
   FastLED.countFPS(30);
+  FastLED.setMaxPowerInVoltsAndMilliamps(LED_VOLTAGE, LED_MAX_MILLIAMPS);
 
   pinMode(MODE_BUTTON_PIN, INPUT_PULLUP);
 
