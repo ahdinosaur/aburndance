@@ -34,7 +34,7 @@
 // FastLED also provides an "Uncorrected temperature" profile
 //    UncorrectedTemperature;
 
-#define LED_COLOR_TEMPERATURE Candle
+#define LED_COLOR_TEMPERATURE DirectSunlight
 
 #define MODE_BUTTON_PIN 4
 
