@@ -2,7 +2,7 @@
 #include "FastLED.h"
 #include "LinkedList.h"
 
-#define NUM_LEDS (60*2)
+#define NUM_LEDS (60*16-6)
 #define FRAMES_PER_SECOND 60
 
 #define LED_DATA_PIN 25
@@ -11,8 +11,7 @@
 #define LED_COLOR_ORDER BGR
 
 #define LED_VOLTAGE 5
-// #define LED_MAX_MILLIAMPS 1750 // maxed by battery
-#define LED_MAX_MILLIAMPS 750 // maxed by power converter
+#define LED_MAX_MILLIAMPS 8000
 
 #define LED_COLOR_CORRECTION TypicalSMD5050
 
@@ -34,7 +33,7 @@
 // FastLED also provides an "Uncorrected temperature" profile
 //    UncorrectedTemperature;
 
-#define LED_COLOR_TEMPERATURE DirectSunlight
+#define LED_COLOR_TEMPERATURE Candle
 
 #define MODE_BUTTON_PIN 4
 
