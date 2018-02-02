@@ -1,0 +1,10 @@
+[package]
+name = "aburndance"
+version = "0.1.0"
+authors = ["Michael Williams <michael.williams@enspiral.com>"]
+
+[dependencies]
+
+[dependencies.gtk]
+version = "0.3.0"
+features = ["v3_22"]

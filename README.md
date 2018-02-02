@@ -4,7 +4,19 @@ a portable rainbow
 
 ## how to get started
 
-TODO
+### simulator
+
+[install rust](https://doc.rust-lang.org/book/second-edition/ch01-01-installation.html)
+
+Debian Stretch dependencies
+
+```shell
+sudo apt install libgtk-3-dev
+```
+
+```shell
+cargo run
+```
 
 ## hardware
 
