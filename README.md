@@ -1,69 +1,42 @@
-# esp32-feather-pixels
+# aburndance
 
-## hardware
-
-[Adafruit HUZZAH32 – ESP32 Feather Board](https://www.adafruit.com/product/3405)
-[Pinouts](https://learn.adafruit.com/adafruit-huzzah32-esp32-feather/pinouts)
-
-## resources
-
-- [Adafruit learning resources](https://learn.adafruit.com/adafruit-huzzah32-esp32-feather)
-- [arduino-esp32/.../examples/.../RepeatTimer.ino](https://github.com/espressif/arduino-esp32/blob/master/libraries/ESP32/examples/Timer/RepeatTimer/RepeatTimer.ino)
+a portable rainbow
 
 ## how to get started
 
-first, follow the [Adafruit guide to installing the Arduino IDE for this board](https://learn.adafruit.com/adafruit-huzzah32-esp32-feather/using-with-arduino-ide).
+TODO
 
-TODO...
+## hardware
 
-## physical controller
+- [pocketbeagle](https://github.com/beagleboard/pocketbeagle)
+- 1x rotary encoder (eQEP)
+  - with reset button
+- param selector buttons (+ and -)
+- mode selector buttons (+ and -)
+- brightness potentiometer
+- apa102 spi out
+- led power protection (like [AllPixel Power Tap Kit](https://www.seeedstudio.com/AllPixel-Power-Tap-Kit-p-2380.html))
 
-- general brightness
-- microphone sensitivity
-- mode
-  - x-way switch?
-  - up and down buttons?
-  - single next button?
-  - one mode is "auto-cycle modes" (how long per mode)
+nice to have:
+
+- microphone sensitivity potentiometer
+- microphone in
+- audio jack in
 
 ## interfaces
 
-- charge value
-- multi-core
-  - how to have one dedicated led message core
-  - how to have other core for audio, wifi, buttons, etc
-- microphones
-  - how to i2s: https://github.com/espressif/arduino-esp32/issues/302
-- apa102c leds
-  - how to send messages to leds
-    - gpio: https://github.com/pololu/apa102-arduino
-    - spi: use spi pinouts with SPI interface: https://learn.adafruit.com/adafruit-huzzah32-esp32-feather/pinouts#i2c-and-spi-pins
-- wireless
-  - how to connect to a wifi network
-  - how to create a mesh (bluetooth)
-- buttons and physical interfaces
-  - rotary encoder
-    - hardware debouncer if we want to save on cpu cycles: http://forum.arduino.cc/index.php/topic,2378.0.html
-    - background reading: http://www.all-electric.com/schematic/debounce.htm
+- apa102 spi interface (like [fastled](https://github.com/FastLED/FastLED))
+- params interface
+- graphics (glsl) interface
+  - input
+    - params (param name, encoder value)
+    - pixel position (x, y)
+  - output: pixel color
 
-## use cases
+nice to have
 
-- pixel jockey
-  - connect to wifi network
-  - start tcp server to receive Open Pixel Control messages
-  - broadcast Bonjour service with tcp server details
-- collective sensing
-  - if one node has a microphone sensor, they all "hear" each other
-- listening
-  - laughing mode
-  - volume based on human noise level
-- shapes
-  - pillar
-    - easy to daisy chain
-  - hexa / octa yurt / teepee
-    - controller at tip top
-    - strips going down each side
+- audio i2s interface 
 
-## power
+## resources
 
-what is the power usage?
+TODO
