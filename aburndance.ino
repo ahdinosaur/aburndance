@@ -2,16 +2,16 @@
 #include "FastLED.h"
 #include "LinkedList.h"
 
-#define NUM_LEDS (60*16-6)
+#define NUM_LEDS (60*3)
 #define FRAMES_PER_SECOND 60
 
-#define LED_DATA_PIN 25
-#define LED_CLOCK_PIN 26
+#define LED_DATA_PIN 13
+#define LED_CLOCK_PIN 12
 #define LED_CHIPSET APA102
 #define LED_COLOR_ORDER BGR
 
 #define LED_VOLTAGE 5
-#define LED_MAX_MILLIAMPS 8000
+#define LED_MAX_MILLIAMPS 2000
 
 #define LED_COLOR_CORRECTION TypicalSMD5050
 
@@ -33,16 +33,20 @@
 // FastLED also provides an "Uncorrected temperature" profile
 //    UncorrectedTemperature;
 
-#define LED_COLOR_TEMPERATURE Candle
+#define LED_COLOR_TEMPERATURE UncorrectedTemperature
 
-#define MODE_BUTTON_PIN 4
+#define MODE_PREV_BUTTON_PIN 26
+#define MODE_NEXT_BUTTON_PIN 25
+
+#define PARAM_PREV_BUTTON_PIN 34
+#define PARAM_NEXT_BUTTON_PIN 39
+
+#define ENCODER_PIN_A 4
+#define ENCODER_PIN_B 21
 
 CRGB leds[NUM_LEDS];
 
-Encoder encoder_a(32, 14);
-Encoder encoder_b(15, 33);
-Encoder encoder_c(27, 12);
-Encoder encoder_d(13, 21);
+Encoder encoder(ENCODER_PIN_A, ENCODER_PIN_B);
  
 void setup () {
   // sanity check delay - allows reprogramming if accidently blowing power w/leds
@@ -55,31 +59,34 @@ void setup () {
   FastLED.countFPS(30);
   FastLED.setMaxPowerInVoltsAndMilliamps(LED_VOLTAGE, LED_MAX_MILLIAMPS);
 
-  pinMode(MODE_BUTTON_PIN, INPUT_PULLUP);
+  pinMode(MODE_PREV_BUTTON_PIN, INPUT);
+  pinMode(MODE_NEXT_BUTTON_PIN, INPUT);
+  pinMode(PARAM_PREV_BUTTON_PIN, INPUT);
+  pinMode(PARAM_NEXT_BUTTON_PIN, INPUT);
 
   Serial.begin(115200);
   Serial.println("Start");
 }
 
-int16_t param_a = 0;
-int16_t param_b = 0;
-int16_t param_c = 0;
-int16_t param_d = 0;
+#define NUM_MODES 3
+int8_t mode_index = 0;
+
+#define NUM_PARAMS 3
+int16_t params[NUM_PARAMS] = { 0 };
+int8_t param_index = 0;
 
 uint8_t brightness = 255;
-
-uint8_t num_modes = 3;
-uint8_t mode_index = 0;
 
 void loop () {
   Serial.print("fps: ");
   Serial.print(LEDS.getFPS());
   Serial.println();
 
-  read_mode();
-  read_encoders();
+  read_mode_index();
+  read_param_index();
+  read_param_encoder();
   
-  brightness = get_brightness(param_d);
+  brightness = read_brightness();
   LEDS.setBrightness(brightness);
   
   run_mode();
@@ -87,64 +94,69 @@ void loop () {
   fade_all();
 }
 
-void read_mode () {
-  int8_t mode_sensor = digitalRead(MODE_BUTTON_PIN);
-  if (mode_sensor == LOW) {
-    mode_index = (mode_index + 1) % num_modes;
-    Serial.print("mode: ");
-    Serial.print(mode_index);
-    Serial.println();
+void read_mode_index () {
+  int8_t prev_mode_sensor = digitalRead(MODE_PREV_BUTTON_PIN);
+  if (prev_mode_sensor == HIGH) {
+    mode_index = mod(mode_index - 1, NUM_MODES);
     delay(250);
   }
+  
+  int8_t next_mode_sensor = digitalRead(MODE_NEXT_BUTTON_PIN);
+  if (next_mode_sensor == HIGH) {
+    mode_index = mod(mode_index + 1, NUM_MODES);
+    delay(250);
+  }
+
+  Serial.print("mode: ");
+  Serial.print(mode_index);
+  Serial.println();
 }
 
-void read_encoders () {
-  int16_t new_param_a = encoder_a.read();
-  if (new_param_a != param_a) {
-     param_a = constrain(new_param_a, 0, 255);
-     encoder_a.write(param_a);
-     Serial.print("param a = ");
-     Serial.print(param_a);
-     Serial.println();
+void read_param_index () {
+  int8_t prev_param_sensor = digitalRead(PARAM_PREV_BUTTON_PIN);
+  if (prev_param_sensor == HIGH) {
+    param_index = mod(param_index - 1, NUM_PARAMS);
+    delay(250);
   }
-  int16_t new_param_b = encoder_b.read();
-  if (new_param_b != param_b) {
-     param_b = constrain(new_param_b, 0, 255);
-     encoder_b.write(param_b);
-     Serial.print("param b = ");
-     Serial.print(param_b);
-     Serial.println();
+  
+  int8_t next_param_sensor = digitalRead(PARAM_NEXT_BUTTON_PIN);
+  if (next_param_sensor == HIGH) {
+    param_index = mod(param_index + 1, NUM_PARAMS);
+    delay(250);
   }
-  int16_t new_param_c = encoder_c.read();
-  if (new_param_c != param_c) {
-     param_c = constrain(new_param_c, 0, 255);
-     encoder_c.write(param_c);
-     Serial.print("param c = ");
-     Serial.print(param_c);
-     Serial.println();
+
+  Serial.print("param: ");
+  Serial.print(param_index);
+  Serial.println();
+}
+
+void read_param_encoder () {
+  int16_t next_param_raw = encoder.read();
+  int16_t next_param = constrain(next_param_raw, 0, 255);
+  int16_t current_param = params[param_index];
+  if (next_param != current_param) {
+    params[param_index] = next_param;
+    encoder.write(next_param);
+    
+    Serial.print("param[");
+    Serial.print(param_index);
+    Serial.print("] =");
+    Serial.print(next_param);
+    Serial.println();
   }
-  int16_t new_param_d = encoder_d.read();
-  if (new_param_d != param_d) {
-     param_d = constrain(new_param_d, 0, 255);
-     encoder_d.write(param_d);
-     Serial.print("param d = ");
-     Serial.print(param_d);
-     Serial.println();
-  }
+  
   // if a character is sent from the serial monitor,
   // reset both back to zero.
   if (Serial.available()) {
     Serial.read();
     Serial.println("Reset encoders to zero");
-    encoder_a.write(0);
-    encoder_b.write(0);
-    encoder_c.write(0);
-    encoder_d.write(0);
+    encoder.write(0);
   }
 }
 
-uint8_t get_brightness (int16_t param) {
-  uint8_t brightness = map(param, 0, 255, 255, 0);
+uint8_t read_brightness () {
+  uint8_t sensor = 100;
+  uint8_t brightness = map(sensor, 0, 255, 0, 255);
   Serial.print("brightness: ");
   Serial.print(brightness);
   Serial.println();
@@ -168,12 +180,12 @@ void run_mode () {
 uint8_t rainbow_index = 0;
 
 void rainbow_loop () {
-  float speed = mapf(param_a, 0.0, 255.0, 0.1, 10.0);
+  float speed = mapf(params[0], 0.0, 255.0, 0.1, 10.0);
   Serial.print("speed: ");
   Serial.print(speed);
   Serial.println();
 
-  float zoom = mapl(param_b, 0.0, 255.0, 0.05, 35.0);
+  float zoom = mapl(params[1], 0.0, 255.0, 0.05, 35.0);
   Serial.print("zoom: ");
   Serial.print(zoom);
   Serial.println(); 
@@ -190,12 +202,12 @@ struct Star {
 LinkedList<Star*> stars = LinkedList<Star*>();
 
 void star_field () {
-  float speed = mapf(param_a, 0.0, 255.0, 0.1, 10.0);
+  float speed = mapf(params[0], 0.0, 255.0, 0.1, 10.0);
   Serial.print("speed: ");
   Serial.print(speed);
   Serial.println();
 
-  float probability_of_new_star = mapf(param_b, 0.0, 255.0, 0.01, 0.25);
+  float probability_of_new_star = mapf(params[1], 0.0, 255.0, 0.01, 0.25);
   Serial.print("probability of new star: ");
   Serial.print(probability_of_new_star);
   Serial.println();
@@ -234,7 +246,7 @@ CRGB convergence_color = random_color();
 uint16_t convergence_midpoint = NUM_LEDS / 2;
 
 void convergence () {
-  float speed = mapl(param_a, 0.0, 255.0, 0.1, 10.0);
+  float speed = mapl(params[0], 0.0, 255.0, 0.1, 10.0);
   Serial.print("speed: ");
   Serial.print(speed);
   Serial.println();
@@ -286,3 +298,6 @@ float mapl (float x, float in_min, float in_max, float out_min, float out_max) {
   return exp(out_min + scale * (x - in_min));
 }
 
+int mod (int x, int y) {
+  return x < 0 ? ((x + 1) % y ) + y - 1 : x % y;
+}

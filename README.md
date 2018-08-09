@@ -1,9 +1,17 @@
-# esp32-feather-pixels
+# aburndance
 
-## hardware
+wearable leds!
 
-[Adafruit HUZZAH32 – ESP32 Feather Board](https://www.adafruit.com/product/3405)
-[Pinouts](https://learn.adafruit.com/adafruit-huzzah32-esp32-feather/pinouts)
+## setup
+
+- controller: [Adafruit HUZZAH32 – ESP32 Feather Board](https://www.adafruit.com/product/3405)
+  - [pinouts](https://learn.adafruit.com/adafruit-huzzah32-esp32-feather/pinouts)
+- shoulder straps (suspenders): [etsy](https://www.etsy.com/nz/listing/456446760/handmade-usa-blackbrowntan-leather-clip)
+- waist strap (belt): [etsy](https://www.etsy.com/nz/listing/114576723/handmade-thick-leather-belt-mens-womens)
+- leg belt?
+- bag for controller?
+- wires?
+- power inputs? ([allpixel power tap kit](
 
 ## resources
 
