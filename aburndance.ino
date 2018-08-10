@@ -41,12 +41,14 @@
 #define PARAM_PREV_BUTTON_PIN 34
 #define PARAM_NEXT_BUTTON_PIN 39
 
-#define ENCODER_PIN_A 4
-#define ENCODER_PIN_B 21
+#define PARAM_RESET_BUTTON_PIN 36
+
+#define PARAM_ENCODER_PIN_A 4
+#define PARAM_ENCODER_PIN_B 21
 
 CRGB leds[NUM_LEDS];
 
-Encoder encoder(ENCODER_PIN_A, ENCODER_PIN_B);
+Encoder encoder(PARAM_ENCODER_PIN_A, PARAM_ENCODER_PIN_B);
  
 void setup () {
   // sanity check delay - allows reprogramming if accidently blowing power w/leds
@@ -63,9 +65,10 @@ void setup () {
   pinMode(MODE_NEXT_BUTTON_PIN, INPUT);
   pinMode(PARAM_PREV_BUTTON_PIN, INPUT);
   pinMode(PARAM_NEXT_BUTTON_PIN, INPUT);
+  pinMode(PARAM_RESET_BUTTON_PIN, INPUT);
 
   Serial.begin(115200);
-  Serial.println("Start");
+  Serial.println("start");
 }
 
 #define NUM_MODES 3
@@ -132,9 +135,9 @@ void read_param_index () {
 
 void read_param_encoder () {
   int16_t next_param_raw = encoder.read();
-  int16_t next_param = constrain(next_param_raw, 0, 255);
   int16_t current_param = params[param_index];
-  if (next_param != current_param) {
+  if (next_param_raw != current_param) {
+    int16_t next_param = constrain(next_param_raw, 0, 255);
     params[param_index] = next_param;
     encoder.write(next_param);
     
@@ -145,12 +148,11 @@ void read_param_encoder () {
     Serial.println();
   }
   
-  // if a character is sent from the serial monitor,
-  // reset both back to zero.
-  if (Serial.available()) {
-    Serial.read();
-    Serial.println("Reset encoders to zero");
+  int8_t reset_param_sensor = digitalRead(PARAM_RESET_BUTTON_PIN);
+  if (reset_param_sensor == HIGH) {
+    Serial.println("reset encoders to zero");
     encoder.write(0);
+    delay(250);
   }
 }
 
