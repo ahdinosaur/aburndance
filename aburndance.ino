@@ -1,8 +1,11 @@
 #include <Encoder.h>
 #include "FastLED.h"
 #include "LinkedList.h"
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
+#include "math.h"
 
-#define NUM_LEDS (60*3)
+#define NUM_LEDS (36)
 #define FRAMES_PER_SECOND 60
 
 #define LED_DATA_PIN 13
@@ -49,11 +52,68 @@
 CRGB leds[NUM_LEDS];
 
 Encoder encoder(PARAM_ENCODER_PIN_A, PARAM_ENCODER_PIN_B);
- 
+
+#define NUM_MODES 3
+int8_t mode_index = 0;
+
+#define MAX_NUM_PARAMS 3
+int8_t num_params_by_mode[NUM_MODES] = { 2, 2, 1 };
+int16_t params[NUM_MODES][MAX_NUM_PARAMS] = { 0 };
+int8_t param_index = 0;
+
+uint8_t brightness = 255;
+
+TaskHandle_t ControlTaskHandle, RenderTaskHandle;
+
 void setup () {
   // sanity check delay - allows reprogramming if accidently blowing power w/leds
   delay(2000);
 
+  Serial.begin(115200);
+  Serial.println("start");
+
+  xTaskCreatePinnedToCore(
+    ControlTask,                  /* pvTaskCode */
+    "Control",            /* pcName */
+    1000,                   /* usStackDepth */
+    NULL,                   /* pvParameters */
+    1,                      /* uxPriority */
+    &ControlTaskHandle,                 /* pxCreatedTask */
+    1                       /* xCoreID */
+  );
+
+  xTaskCreatePinnedToCore(
+    RenderTask,                  /* pvTaskCode */
+    "Render",            /* pcName */
+    1000,                   /* usStackDepth */
+    NULL,                   /* pvParameters */
+    1,                      /* uxPriority */
+    &RenderTaskHandle,                 /* pxCreatedTask */
+    0                       /* xCoreID */
+  );
+}
+
+void loop () {
+
+}
+
+void ControlTask (void * parameter) {
+  pinMode(MODE_PREV_BUTTON_PIN, INPUT);
+  pinMode(MODE_NEXT_BUTTON_PIN, INPUT);
+  pinMode(PARAM_PREV_BUTTON_PIN, INPUT);
+  pinMode(PARAM_NEXT_BUTTON_PIN, INPUT);
+  pinMode(PARAM_RESET_BUTTON_PIN, INPUT);
+
+  for (;;) {
+    read_mode_index();
+    read_param_index();
+    read_param_encoder();
+
+    delay(20);
+  }
+}
+
+void RenderTask (void * parameter) {
   FastLED.addLeds<LED_CHIPSET, LED_DATA_PIN, LED_CLOCK_PIN, LED_COLOR_ORDER>(leds, NUM_LEDS);
   FastLED.setCorrection(LED_COLOR_CORRECTION);
   FastLED.setTemperature(LED_COLOR_TEMPERATURE);
@@ -61,93 +121,89 @@ void setup () {
   FastLED.countFPS(30);
   FastLED.setMaxPowerInVoltsAndMilliamps(LED_VOLTAGE, LED_MAX_MILLIAMPS);
 
-  pinMode(MODE_PREV_BUTTON_PIN, INPUT);
-  pinMode(MODE_NEXT_BUTTON_PIN, INPUT);
-  pinMode(PARAM_PREV_BUTTON_PIN, INPUT);
-  pinMode(PARAM_NEXT_BUTTON_PIN, INPUT);
-  pinMode(PARAM_RESET_BUTTON_PIN, INPUT);
+  for (;;) {
+    Serial.print("fps: ");
+    Serial.print(LEDS.getFPS());
+    Serial.println();
 
-  Serial.begin(115200);
-  Serial.println("start");
+    LEDS.setBrightness(brightness);
+
+    run_mode();
+    FastLED.show();
+    fade_all();
+  }
 }
 
-#define NUM_MODES 3
-int8_t mode_index = 0;
-
-#define NUM_PARAMS 3
-int16_t params[NUM_PARAMS] = { 0 };
-int8_t param_index = 0;
-
-uint8_t brightness = 255;
-
-void loop () {
-  Serial.print("fps: ");
-  Serial.print(LEDS.getFPS());
-  Serial.println();
-
-  read_mode_index();
-  read_param_index();
-  read_param_encoder();
-  
-  brightness = read_brightness();
-  LEDS.setBrightness(brightness);
-  
-  run_mode();
-  FastLED.show();
-  fade_all();
-}
+/* controls */
 
 void read_mode_index () {
+  bool has_mode_changed = false;
+
   int8_t prev_mode_sensor = digitalRead(MODE_PREV_BUTTON_PIN);
   if (prev_mode_sensor == HIGH) {
     mode_index = mod(mode_index - 1, NUM_MODES);
-    delay(250);
+    has_mode_changed = true;
   }
-  
+
   int8_t next_mode_sensor = digitalRead(MODE_NEXT_BUTTON_PIN);
   if (next_mode_sensor == HIGH) {
     mode_index = mod(mode_index + 1, NUM_MODES);
-    delay(250);
+    has_mode_changed = true;
   }
 
-  Serial.print("mode: ");
-  Serial.print(mode_index);
-  Serial.println();
+  if (has_mode_changed) {
+    Serial.print("mode: ");
+    Serial.print(mode_index);
+    Serial.println();
+
+    param_index = 0;
+    encoder.write(params[mode_index][param_index]);
+
+    delay(250);
+  }
 }
 
 void read_param_index () {
+  bool has_param_changed = false;
+  int8_t num_params = num_params_by_mode[mode_index];
+
   int8_t prev_param_sensor = digitalRead(PARAM_PREV_BUTTON_PIN);
   if (prev_param_sensor == HIGH) {
-    param_index = mod(param_index - 1, NUM_PARAMS);
-    delay(250);
-  }
-  
-  int8_t next_param_sensor = digitalRead(PARAM_NEXT_BUTTON_PIN);
-  if (next_param_sensor == HIGH) {
-    param_index = mod(param_index + 1, NUM_PARAMS);
-    delay(250);
+    param_index = mod(param_index - 1, num_params);
+    has_param_changed = true;
   }
 
-  Serial.print("param: ");
-  Serial.print(param_index);
-  Serial.println();
+  int8_t next_param_sensor = digitalRead(PARAM_NEXT_BUTTON_PIN);
+  if (next_param_sensor == HIGH) {
+    param_index = mod(param_index + 1, num_params);
+  }
+
+  if (has_param_changed) {
+    Serial.print("param: ");
+    Serial.print(param_index);
+    Serial.println();
+
+    encoder.write(params[mode_index][param_index]);
+
+    delay(250);
+  }
 }
 
 void read_param_encoder () {
   int16_t next_param_raw = encoder.read();
-  int16_t current_param = params[param_index];
+  int16_t current_param = params[mode_index][param_index];
   if (next_param_raw != current_param) {
     int16_t next_param = constrain(next_param_raw, 0, 255);
-    params[param_index] = next_param;
+    params[mode_index][param_index] = next_param;
     encoder.write(next_param);
-    
+
     Serial.print("param[");
     Serial.print(param_index);
     Serial.print("] =");
     Serial.print(next_param);
     Serial.println();
   }
-  
+
   int8_t reset_param_sensor = digitalRead(PARAM_RESET_BUTTON_PIN);
   if (reset_param_sensor == HIGH) {
     Serial.println("reset encoders to zero");
@@ -157,13 +213,18 @@ void read_param_encoder () {
 }
 
 uint8_t read_brightness () {
-  uint8_t sensor = 100;
+  uint8_t sensor = 255;
   uint8_t brightness = map(sensor, 0, 255, 0, 255);
   Serial.print("brightness: ");
   Serial.print(brightness);
   Serial.println();
   return brightness;
 }
+
+/* view modes */
+
+// TODO strobe
+// TODO chase
 
 void run_mode () {
   switch (mode_index) {
@@ -179,22 +240,22 @@ void run_mode () {
   }
 }
 
-uint8_t rainbow_index = 0;
+float rainbow_index = 0.0;
 
 void rainbow_loop () {
-  float speed = mapf(params[0], 0.0, 255.0, 0.1, 10.0);
+  float speed = mapl(params[mode_index][0], 0.0, 255.0, 0.1, 10.0);
   Serial.print("speed: ");
   Serial.print(speed);
   Serial.println();
 
-  float zoom = mapl(params[1], 0.0, 255.0, 0.05, 35.0);
+  float zoom = mapl(params[mode_index][1], 0.0, 255.0, 0.05, 35.0);
   Serial.print("zoom: ");
   Serial.print(zoom);
-  Serial.println(); 
+  Serial.println();
 
-  fill_rainbow(leds, NUM_LEDS, rainbow_index, floor(zoom));
+  fill_rainbow(leds, NUM_LEDS, floor(rainbow_index), floor(zoom));
 
-  rainbow_index = (rainbow_index + (uint8_t) speed) % 256;
+  rainbow_index = fmod(rainbow_index + speed, 256.0);
 }
 
 struct Star {
@@ -204,12 +265,12 @@ struct Star {
 LinkedList<Star*> stars = LinkedList<Star*>();
 
 void star_field () {
-  float speed = mapf(params[0], 0.0, 255.0, 0.1, 10.0);
+  float speed = mapl(params[mode_index][0], 0.0, 255.0, 0.1, 10.0);
   Serial.print("speed: ");
   Serial.print(speed);
   Serial.println();
 
-  float probability_of_new_star = mapf(params[1], 0.0, 255.0, 0.01, 0.25);
+  float probability_of_new_star = mapf(params[mode_index][1], 0.0, 255.0, 0.01, 0.25);
   Serial.print("probability of new star: ");
   Serial.print(probability_of_new_star);
   Serial.println();
@@ -248,7 +309,7 @@ CRGB convergence_color = random_color();
 uint16_t convergence_midpoint = NUM_LEDS / 2;
 
 void convergence () {
-  float speed = mapl(params[0], 0.0, 255.0, 0.1, 10.0);
+  float speed = mapl(params[mode_index][0], 0.0, 255.0, 0.1, 10.0);
   Serial.print("speed: ");
   Serial.print(speed);
   Serial.println();
@@ -265,7 +326,7 @@ void convergence () {
 }
 
 void fade_all () {
-  for(int i = 0; i < NUM_LEDS; i++) {
+  for (int i = 0; i < NUM_LEDS; i++) {
     leds[i].nscale8(250);
   }
 }
