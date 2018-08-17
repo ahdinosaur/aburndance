@@ -25,7 +25,7 @@ TODO:
 #define LED_VOLTAGE 5
 #define LED_MAX_MILLIAMPS 2000
 
-#define LED_COLOR_CORRECTION TypicalSMD5050
+#define LED_COLOR_CORRECTION TypicalLEDStrip
 
 //
 // FastLED provides these pre-conigured incandescent color profiles:
@@ -45,7 +45,21 @@ TODO:
 // FastLED also provides an "Uncorrected temperature" profile
 //    UncorrectedTemperature;
 
-#define LED_COLOR_TEMPERATURE UncorrectedTemperature
+#define NUM_TEMPERATURES 10
+ColorTemperature color_temperatures[NUM_TEMPERATURES] = {
+  UncorrectedTemperature,
+  Candle,
+  Tungsten40W,
+  Tungsten100W,
+  Halogen,
+  CarbonArc,
+  HighNoonSun,
+  DirectSunlight,
+  OvercastSky,
+  ClearBlueSky
+};
+
+#define DEFAULT_LED_COLOR_TEMPERATURE UncorrectedTemperature
 
 #define NUM_BUTTONS 5
 
@@ -86,11 +100,10 @@ bool button_is_pressed_up[NUM_BUTTONS] = { false };
 bool button_is_held[NUM_BUTTONS] = { false };
 uint32_t button_start_press_time[NUM_BUTTONS] = { 0 };
 
-
 #define NUM_LEDS_A 36
 #define NUM_LEDS_B 36
 
-#define FRAMES_PER_SECOND 120
+#define FRAMES_PER_SECOND 60
 
 CRGB leds_a[NUM_LEDS_A];
 CRGB leds_b[NUM_LEDS_B];
@@ -100,8 +113,9 @@ Encoder encoder(PARAM_ENCODER_PIN_A, PARAM_ENCODER_PIN_B);
 #define NUM_MODES 3
 int8_t mode_index = 0;
 
-#define DEFAULT_BRIGHTNESS 255
+#define DEFAULT_BRIGHTNESS 128
 uint8_t brightness = DEFAULT_BRIGHTNESS;
+uint8_t temperature_index = 0;
 
 #define MAX_NUM_PARAMS 3
 int8_t num_params_by_mode[NUM_MODES] = { 2, 2, 1 };
@@ -121,70 +135,73 @@ void setup () {
   Serial.begin(115200);
   Serial.println("start");
 
-  xTaskCreatePinnedToCore(
-    ControlTask,                  /* pvTaskCode */
-    "Control",            /* pcName */
-    1000,                   /* usStackDepth */
-    NULL,                   /* pvParameters */
-    1,                      /* uxPriority */
-    &ControlTaskHandle,                 /* pxCreatedTask */
-    1                       /* xCoreID */
-  );
+  control_setup();
+  render_setup();
 
-  xTaskCreatePinnedToCore(
-    RenderTask,                  /* pvTaskCode */
-    "Render",            /* pcName */
-    1000,                   /* usStackDepth */
-    NULL,                   /* pvParameters */
-    1,                      /* uxPriority */
-    &RenderTaskHandle,                 /* pxCreatedTask */
-    0                       /* xCoreID */
-  );
+//  xTaskCreatePinnedToCore(
+//    ControlTask,                  /* pvTaskCode */
+//    "Control",            /* pcName */
+//    1000,                   /* usStackDepth */
+//    NULL,                   /* pvParameters */
+//    1,                      /* uxPriority */
+//    &ControlTaskHandle,                 /* pxCreatedTask */
+//    1                       /* xCoreID */
+//  );
+//
+//  xTaskCreatePinnedToCore(
+//    RenderTask,                  /* pvTaskCode */
+//    "Render",            /* pcName */
+//    1000,                   /* usStackDepth */
+//    NULL,                   /* pvParameters */
+//    1,                      /* uxPriority */
+//    &RenderTaskHandle,                 /* pxCreatedTask */
+//    0                       /* xCoreID */
+//  );
 }
 
 void loop () {
-
+  control_loop();
+  render_loop();
 }
 
-void ControlTask (void * parameter) {
+void control_setup () {
   pinMode(MODE_PREV_BUTTON_PIN, INPUT);
   pinMode(MODE_NEXT_BUTTON_PIN, INPUT);
   pinMode(PARAM_PREV_BUTTON_PIN, INPUT);
   pinMode(PARAM_NEXT_BUTTON_PIN, INPUT);
   pinMode(PARAM_RESET_BUTTON_PIN, INPUT);
-
-  for (;;) {
-    read_mode_index();
-    read_param_index();
-    read_param_encoder();
-
-    brightness = read_brightness();
-
-    delay(20);
-  }
 }
 
-void RenderTask (void * parameter) {
+void control_loop () {
+  read_mode_buttons();
+  read_param_buttons();  
+  read_encoder();
+}
+
+void render_setup () {
   FastLED.addLeds<LED_CHIPSET, LED_A_DATA_PIN, LED_A_CLOCK_PIN, LED_COLOR_ORDER>(leds_a, NUM_LEDS_A);
   FastLED.addLeds<LED_CHIPSET, LED_B_DATA_PIN, LED_B_CLOCK_PIN, LED_COLOR_ORDER>(leds_b, NUM_LEDS_B);
   FastLED.setCorrection(LED_COLOR_CORRECTION);
-  FastLED.setTemperature(LED_COLOR_TEMPERATURE);
-  // FastLED.setMaxRefreshRate(FRAMES_PER_SECOND);
+  FastLED.setMaxRefreshRate(FRAMES_PER_SECOND);
   FastLED.countFPS(30);
   FastLED.setMaxPowerInVoltsAndMilliamps(LED_VOLTAGE, LED_MAX_MILLIAMPS);
+}
 
-  for (;;) {
-    Serial.print("fps: ");
-    Serial.print(LEDS.getFPS());
-    Serial.println();
+void render_loop () {
+  Serial.print("fps: ");
+  Serial.print(LEDS.getFPS());
+  Serial.println();
 
-    LEDS.setBrightness(brightness);
+  FastLED.setTemperature(color_temperatures[temperature_index]);
+  FastLED.setBrightness(brightness);
 
+  if (button_is_held[MODE_PREV_BUTTON_INDEX] || button_is_held[MODE_NEXT_BUTTON_INDEX]) {
+    solid_white();
+  } else {
     run_mode();
-    FastLED.show();
-    FastLED.delay(1000 / FRAMES_PER_SECOND); 
-    fade_all();
   }
+  FastLED.show();
+  fade_all();
 }
 
 /* controls */
@@ -219,7 +236,7 @@ bool read_button_press (int8_t button_index) {
   }
 }
 
-void read_mode_index () {
+void read_mode_buttons () {
   bool has_mode_changed = false;
 
   read_button_press(MODE_PREV_BUTTON_INDEX);
@@ -233,8 +250,12 @@ void read_mode_index () {
     mode_index = mod(mode_index + 1, NUM_MODES);
     has_mode_changed = true;
   }
-  
-  if (has_mode_changed) {
+
+  if (button_is_held[MODE_PREV_BUTTON_INDEX]) {
+    encoder.write(brightness);
+  } else if (button_is_held[MODE_NEXT_BUTTON_INDEX]) {
+    encoder.write(temperature_index);
+  } else if (has_mode_changed) {
     Serial.print("mode: ");
     Serial.print(mode_index);
     Serial.println();
@@ -244,7 +265,7 @@ void read_mode_index () {
   }
 }
 
-void read_param_index () {
+void read_param_buttons () {
   bool has_param_changed = false;
   int8_t num_params = num_params_by_mode[mode_index];
 
@@ -269,21 +290,31 @@ void read_param_index () {
   }
 }
 
-void read_param_encoder () {
-  int16_t next_param_raw = encoder.read();
+void read_encoder () {
+  int16_t encoder_value = encoder.read();
+  int16_t value = constrain(encoder_value, 0, 255);
+  encoder.write(value);
+
+  if (button_is_held[MODE_PREV_BUTTON_INDEX]) {
+    brightness = value;
+    return;
+  }
+
+  if (button_is_held[MODE_NEXT_BUTTON_INDEX]) {
+    temperature_index = map(value, 0, 255, 0, 10);
+    return;
+  }
+  
   int16_t current_param = params[mode_index][param_index];
-  if (next_param_raw != current_param) {
-    int16_t next_param = constrain(next_param_raw, 0, 255);
-    params[mode_index][param_index] = next_param;
-    encoder.write(next_param);
+  if (value != current_param) {
+    params[mode_index][param_index] = value;
 
     Serial.print("param[");
     Serial.print(param_index);
     Serial.print("] =");
-    Serial.print(next_param);
+    Serial.print(value);
     Serial.println();
   }
-
 
   read_button_press(PARAM_RESET_BUTTON_INDEX);
   if (button_is_pressed_up[PARAM_RESET_BUTTON_INDEX]) {
@@ -305,6 +336,11 @@ uint8_t read_brightness () {
 
 // TODO strobe
 // TODO chase
+
+void solid_white () {
+  fill_solid(leds_a, NUM_LEDS_A, CRGB::White);
+  fill_solid(leds_b, NUM_LEDS_B, CRGB::White);
+}
 
 void run_mode () {
   switch (mode_index) {
@@ -346,7 +382,7 @@ struct Star {
 LinkedList<Star*> stars = LinkedList<Star*>();
 
 void star_field () {
-  float speed = mapl(params[mode_index][0], 0.0, 255.0, 0.01, 10.0);
+  float speed = mapl(params[mode_index][0], 0.0, 255.0, 0.1, 10.0);
   Serial.print("speed: ");
   Serial.print(speed);
   Serial.println();
