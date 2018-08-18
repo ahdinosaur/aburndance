@@ -17,8 +17,8 @@ TODO:
 
 #define LED_A_DATA_PIN 13
 #define LED_A_CLOCK_PIN 12
-#define LED_B_DATA_PIN 15
-#define LED_B_CLOCK_PIN 27
+#define LED_B_DATA_PIN 27
+#define LED_B_CLOCK_PIN 15
 #define LED_CHIPSET APA102
 #define LED_COLOR_ORDER BGR
 
@@ -66,12 +66,12 @@ ColorTemperature color_temperatures[NUM_TEMPERATURES] = {
 #define MODE_PREV_BUTTON_INDEX 0
 #define MODE_PREV_BUTTON_PIN 25
 #define MODE_NEXT_BUTTON_INDEX 1
-#define MODE_NEXT_BUTTON_PIN 34
+#define MODE_NEXT_BUTTON_PIN 33
 
 #define PARAM_PREV_BUTTON_INDEX 2
-#define PARAM_PREV_BUTTON_PIN 39
+#define PARAM_PREV_BUTTON_PIN 32
 #define PARAM_NEXT_BUTTON_INDEX 3
-#define PARAM_NEXT_BUTTON_PIN 36
+#define PARAM_NEXT_BUTTON_PIN 14
 
 #define PARAM_RESET_BUTTON_INDEX 4
 #define PARAM_RESET_BUTTON_PIN 26
@@ -165,11 +165,11 @@ void loop () {
 }
 
 void control_setup () {
-  pinMode(MODE_PREV_BUTTON_PIN, INPUT);
-  pinMode(MODE_NEXT_BUTTON_PIN, INPUT);
-  pinMode(PARAM_PREV_BUTTON_PIN, INPUT);
-  pinMode(PARAM_NEXT_BUTTON_PIN, INPUT);
-  pinMode(PARAM_RESET_BUTTON_PIN, INPUT);
+  pinMode(MODE_PREV_BUTTON_PIN, INPUT_PULLUP);
+  pinMode(MODE_NEXT_BUTTON_PIN, INPUT_PULLUP);
+  pinMode(PARAM_PREV_BUTTON_PIN, INPUT_PULLUP);
+  pinMode(PARAM_NEXT_BUTTON_PIN, INPUT_PULLUP);
+  pinMode(PARAM_RESET_BUTTON_PIN, INPUT_PULLUP);
 }
 
 void control_loop () {
@@ -215,7 +215,9 @@ bool read_button_press (int8_t button_index) {
   
   int8_t button_value = digitalRead(button_pin);
 
-  if (button_value == HIGH) {
+  if (button_value == LOW) {
+    // button is pushed down
+    
     button_is_pressed_down[button_index] = true;
     button_is_pressed_up[button_index] = false;
     if (button_pressed_time == 0) {
@@ -223,7 +225,9 @@ bool read_button_press (int8_t button_index) {
     } else if (millis() - button_pressed_time > BUTTON_HOLD_MILLIS) {
       button_is_held[button_index] = true;
     }
-  } else if (button_value == LOW) {
+  } else if (button_value == HIGH) {
+    // button is not pushed down
+    
     button_start_press_time[button_index] = 0;
     button_is_pressed_down[button_index] = false;
     button_is_held[button_index] = false;
@@ -238,6 +242,7 @@ bool read_button_press (int8_t button_index) {
 
 void read_mode_buttons () {
   bool has_mode_changed = false;
+  bool buttons_were_held = button_is_held[MODE_PREV_BUTTON_INDEX] || button_is_held[MODE_NEXT_BUTTON_INDEX];
 
   read_button_press(MODE_PREV_BUTTON_INDEX);
   if (button_is_pressed_up[MODE_PREV_BUTTON_INDEX]) {
@@ -251,11 +256,19 @@ void read_mode_buttons () {
     has_mode_changed = true;
   }
 
-  if (button_is_held[MODE_PREV_BUTTON_INDEX]) {
-    encoder.write(brightness);
-  } else if (button_is_held[MODE_NEXT_BUTTON_INDEX]) {
-    encoder.write(temperature_index);
-  } else if (has_mode_changed) {
+  bool buttons_are_held = button_is_held[MODE_PREV_BUTTON_INDEX] || button_is_held[MODE_NEXT_BUTTON_INDEX];
+
+  if (buttons_were_held && !buttons_are_held) {
+    encoder.write(params[mode_index][param_index]);
+  } else if (!buttons_were_held && buttons_are_held) {
+    if (button_is_held[MODE_PREV_BUTTON_INDEX]) {
+      encoder.write(brightness);
+    } else if (button_is_held[MODE_NEXT_BUTTON_INDEX]) {
+      encoder.write(temperature_index);
+    }
+  }
+  
+  if (has_mode_changed) {
     Serial.print("mode: ");
     Serial.print(mode_index);
     Serial.println();
@@ -297,11 +310,17 @@ void read_encoder () {
 
   if (button_is_held[MODE_PREV_BUTTON_INDEX]) {
     brightness = value;
+    Serial.print("brightness =");
+    Serial.print(brightness);
+    Serial.println();
     return;
   }
 
   if (button_is_held[MODE_NEXT_BUTTON_INDEX]) {
     temperature_index = map(value, 0, 255, 0, 10);
+    Serial.print("temperature index =");
+    Serial.print(temperature_index);
+    Serial.println();
     return;
   }
   
