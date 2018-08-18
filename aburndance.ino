@@ -1,19 +1,23 @@
 /*
 
 TODO:
-- change mode or param on button up
-- change brightness while holding prev mode
-- change color correction while holding next mode
-
+- chase (single color back and forth as rainbow)
+  - chase speed
+  - color speed
+- change frame based to time based
+  - store micros as time
+- store brightness and temperature in settings
+- store params as settings
+- reset to default param not 0 (have default params as variable)
 */
 
+#include "math.h"
 #include <Encoder.h>
 #include "FastLED.h"
 #include "LinkedList.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
-#include "math.h"
-
+#include <Preferences.h>
 
 #define LED_A_DATA_PIN 13
 #define LED_A_CLOCK_PIN 12
@@ -23,11 +27,10 @@ TODO:
 #define LED_COLOR_ORDER BGR
 
 #define LED_VOLTAGE 5
-#define LED_MAX_MILLIAMPS 2000
+#define LED_MAX_MILLIAMPS 2800
 
 #define LED_COLOR_CORRECTION TypicalLEDStrip
 
-//
 // FastLED provides these pre-conigured incandescent color profiles:
 //   - Candle: 1900K
 //   - Tungsten40W: 2850K
@@ -58,8 +61,6 @@ ColorTemperature color_temperatures[NUM_TEMPERATURES] = {
   OvercastSky,
   ClearBlueSky
 };
-
-#define DEFAULT_LED_COLOR_TEMPERATURE UncorrectedTemperature
 
 #define NUM_BUTTONS 5
 
@@ -103,37 +104,56 @@ uint32_t button_start_press_time[NUM_BUTTONS] = { 0 };
 #define NUM_LEDS_A 36
 #define NUM_LEDS_B 36
 
-#define FRAMES_PER_SECOND 60
+#define SHORT_LENGTH 12
+
+#define FRAMES_PER_SECOND 120
 
 CRGB leds_a[NUM_LEDS_A];
 CRGB leds_b[NUM_LEDS_B];
 
 Encoder encoder(PARAM_ENCODER_PIN_A, PARAM_ENCODER_PIN_B);
 
-#define NUM_MODES 3
+#define NUM_MODES 5
 int8_t mode_index = 0;
 
 #define DEFAULT_BRIGHTNESS 128
 uint8_t brightness = DEFAULT_BRIGHTNESS;
-uint8_t temperature_index = 0;
+#define DEFAULT_TEMPERATURE_INDEX 0
+uint8_t temperature_index = DEFAULT_TEMPERATURE_INDEX;
 
 #define MAX_NUM_PARAMS 3
 int8_t num_params_by_mode[NUM_MODES] = { 2, 2, 1 };
-int16_t params[NUM_MODES][MAX_NUM_PARAMS] = {
+int default_params[NUM_MODES][MAX_NUM_PARAMS] = {
   0, 168, 0,
   128, 0, 0,
-  64, 0, 0
+  64, 0, 0,
+  0, 0, 0,
+  0, 0, 0
 };
+int params[NUM_MODES][MAX_NUM_PARAMS];
 int8_t param_index = 0;
+
+Preferences preferences;
 
 TaskHandle_t ControlTaskHandle, RenderTaskHandle;
 
 void setup () {
+  memcpy(params, default_params, NUM_MODES * MAX_NUM_PARAMS);
+  
   // sanity check delay - allows reprogramming if accidently blowing power w/leds
   delay(2000);
 
   Serial.begin(115200);
   Serial.println("start");
+  Serial.setDebugOutput(true);
+
+/*
+  preferences.begin("aburndance", false);
+  preferences.clear();
+  brightness = preferences.getUChar("brightness", DEFAULT_BRIGHTNESS);
+  temperature_index = preferences.getUChar("temperature", DEFAULT_TEMPERATURE_INDEX);
+  preferences.end();
+*/
 
   control_setup();
   render_setup();
@@ -196,7 +216,8 @@ void render_loop () {
   FastLED.setBrightness(brightness);
 
   if (button_is_held[MODE_PREV_BUTTON_INDEX] || button_is_held[MODE_NEXT_BUTTON_INDEX]) {
-    solid_white();
+    fill_solid(leds_a, SHORT_LENGTH, CRGB::White);
+    fill_solid(leds_b, SHORT_LENGTH, CRGB::White);
   } else {
     run_mode();
   }
@@ -264,7 +285,7 @@ void read_mode_buttons () {
     if (button_is_held[MODE_PREV_BUTTON_INDEX]) {
       encoder.write(brightness);
     } else if (button_is_held[MODE_NEXT_BUTTON_INDEX]) {
-      encoder.write(temperature_index);
+      encoder.write(mapi(temperature_index, 0, NUM_TEMPERATURES, 0, 255) + 1);
     }
   }
   
@@ -304,28 +325,50 @@ void read_param_buttons () {
 }
 
 void read_encoder () {
+  read_button_press(PARAM_RESET_BUTTON_INDEX);
+  if (button_is_pressed_up[PARAM_RESET_BUTTON_INDEX]) {
+    Serial.println("reset encoder to default");
+
+    if (button_is_held[MODE_PREV_BUTTON_INDEX]) {
+      encoder.write(DEFAULT_BRIGHTNESS);
+    } else if (button_is_held[MODE_NEXT_BUTTON_INDEX]) {
+      encoder.write(mapi(temperature_index, 0, NUM_TEMPERATURES, 0, 255));
+    } else {
+      encoder.write(default_params[mode_index][param_index]);      
+    }
+  }
+  
   int16_t encoder_value = encoder.read();
   int16_t value = constrain(encoder_value, 0, 255);
   encoder.write(value);
 
+  int16_t current_param = params[mode_index][param_index];
+
   if (button_is_held[MODE_PREV_BUTTON_INDEX]) {
     brightness = value;
+
+/*
+    preferences.begin("aburndance", false);
+    preferences.putUChar("brightness", brightness);
+    preferences.end();
+*/
+
     Serial.print("brightness =");
     Serial.print(brightness);
     Serial.println();
-    return;
-  }
+  } else if (button_is_held[MODE_NEXT_BUTTON_INDEX]) {
+    temperature_index = mapi(value, 0, 255, 0, NUM_TEMPERATURES);
 
-  if (button_is_held[MODE_NEXT_BUTTON_INDEX]) {
-    temperature_index = map(value, 0, 255, 0, 10);
+/*
+    preferences.begin("aburndance", false);
+    preferences.putUChar("temperature", temperature_index);
+    preferences.end();
+*/
+
     Serial.print("temperature index =");
     Serial.print(temperature_index);
     Serial.println();
-    return;
-  }
-  
-  int16_t current_param = params[mode_index][param_index];
-  if (value != current_param) {
+  } else if (value != current_param) {
     params[mode_index][param_index] = value;
 
     Serial.print("param[");
@@ -334,17 +377,11 @@ void read_encoder () {
     Serial.print(value);
     Serial.println();
   }
-
-  read_button_press(PARAM_RESET_BUTTON_INDEX);
-  if (button_is_pressed_up[PARAM_RESET_BUTTON_INDEX]) {
-    Serial.println("reset encoders to zero");
-    encoder.write(0);
-  }
 }
 
 uint8_t read_brightness () {
   uint8_t sensor = DEFAULT_BRIGHTNESS;
-  uint8_t brightness = map(sensor, 0, 255, 0, 255);
+  uint8_t brightness = mapi(sensor, 0, 255, 0, 255);
   Serial.print("brightness: ");
   Serial.print(brightness);
   Serial.println();
@@ -352,14 +389,6 @@ uint8_t read_brightness () {
 }
 
 /* view modes */
-
-// TODO strobe
-// TODO chase
-
-void solid_white () {
-  fill_solid(leds_a, NUM_LEDS_A, CRGB::White);
-  fill_solid(leds_b, NUM_LEDS_B, CRGB::White);
-}
 
 void run_mode () {
   switch (mode_index) {
@@ -371,6 +400,12 @@ void run_mode () {
       break;
     case 2:
       convergence();
+      break;
+    case 3:
+      strobe();
+      break;
+    case 4:
+      flashlight();
       break;
   }
 }
@@ -400,6 +435,8 @@ struct Star {
 };
 LinkedList<Star*> stars = LinkedList<Star*>();
 
+// TODO make variance a param, default to regular star creation
+// base this on time not frame?
 void star_field () {
   float speed = mapl(params[mode_index][0], 0.0, 255.0, 0.1, 10.0);
   Serial.print("speed: ");
@@ -448,6 +485,7 @@ float convergence_index = 0;
 CRGB convergence_color = random_color();
 uint16_t convergence_midpoint = NUM_LEDS_A / 2;
 
+// TODO alternate left and right convergences
 void convergence () {
   float speed = mapl(params[mode_index][0], 0.0, 255.0, 0.01, 10.0);
   Serial.print("speed: ");
@@ -466,6 +504,43 @@ void convergence () {
 
   fill_solid(leds_b, convergence_index, convergence_color);
   fill_solid(leds_b + (NUM_LEDS_B - (uint16_t) convergence_index), convergence_index, convergence_color);
+}
+
+bool strobe_on = false;
+uint16_t strobe_frames = 0;
+
+void strobe () {
+  int16_t strobe_length = mapl(params[mode_index][0], 0, 255, 1, 256);
+
+  strobe_frames++;
+
+  if (strobe_on) {
+    fill_solid(leds_a, NUM_LEDS_A, CRGB::White);
+    fill_solid(leds_b, NUM_LEDS_B, CRGB::White);
+
+    if (strobe_frames >= strobe_length) {
+      strobe_on = false;
+      strobe_frames = 0;
+    }
+  } else {
+    fill_solid(leds_a, NUM_LEDS_A, CRGB::Black);
+    fill_solid(leds_b, NUM_LEDS_B, CRGB::Black);
+    
+    if (strobe_frames >= strobe_length) {
+      strobe_on = true;
+      strobe_frames = 0;
+    }
+  }
+}
+
+void flashlight () {
+  int16_t flash_length = mapi(params[mode_index][0], 0, 255, 1, NUM_LEDS_A);
+
+  fill_solid(leds_a + (NUM_LEDS_A - flash_length), flash_length, CRGB::White);
+  fill_solid(leds_b + (NUM_LEDS_B - flash_length), flash_length, CRGB::White);
+
+  fill_solid(leds_a + flash_length, NUM_LEDS_A - flash_length, CRGB::Black);
+  fill_solid(leds_b + flash_length, NUM_LEDS_B - flash_length, CRGB::Black);
 }
 
 void fade_all () {
@@ -492,6 +567,15 @@ CRGB random_color () {
   uint8_t saturation = 255;
   uint8_t value = 255;
   return CHSV(hue, saturation, value);
+}
+
+/*
+template <typename T> T mapi(T x, T in_min, T in_max, T out_min, T out_max) {
+  return constrain(map(x, in_min, in_max + 1, out_min, out_max + 1), out_min, out_max);
+}
+*/
+int16_t mapi(int16_t x, int16_t in_min, int16_t in_max, int16_t out_min, int16_t out_max) {
+  return constrain(map(x, in_min, in_max + 1, out_min, out_max + 1), out_min, out_max);
 }
 
 float mapf (float x, float in_min, float in_max, float out_min, float out_max) {
