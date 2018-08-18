@@ -1,77 +1,51 @@
 # aburndance
 
-wearable leds!
+rainbow leds you can dance with!
 
-## setup
+in the classic shape of suspenders and a belt.
 
+## bom
+
+bill of materials:
+
+- led strips: [apa102](https://www.adafruit.com/product/2239?length=2)
+  - [connector](https://www.amazon.com/gp/product/B0777BQC1P/)
 - controller: [Adafruit HUZZAH32 – ESP32 Feather Board](https://www.adafruit.com/product/3405)
-  - [pinouts](https://learn.adafruit.com/adafruit-huzzah32-esp32-feather/pinouts)
+  - [Feather proto board](https://www.adafruit.com/product/2884)
+  - [rotary encoder](https://www.adafruit.com/product/377)
+  - [tactile button](https://www.adafruit.com/product/367)
+- usb power source: [Anker PowerCore 26800](https://www.amazon.com/dp/B01JIWQPMW)
 - shoulder straps (suspenders): [etsy](https://www.etsy.com/nz/listing/456446760/handmade-usa-blackbrowntan-leather-clip)
 - waist strap (belt): [etsy](https://www.etsy.com/nz/listing/114576723/handmade-thick-leather-belt-mens-womens)
-- leg belt?
-- bag for controller?
-- wires?
-- power inputs? ([allpixel power tap kit](
+
+## user interface design
+
+controller has a current mode and current param.
+
+the current mode is being rendered with all the params for that mode.
+
+here are the available ways to interface with the controller:
+
+- press 1st button for previous mode
+- press 2nd button for next mode
+- press 3rd button for previous param
+- press 4th button for next param
+- turn the rotary encoder to change the current param
+- hold 1st button until white then turn rotary encoder to change brightness
+- hold 2nd button until white then turn rotary encoder to change color temperature
+
+## circuit design
+
+TODO
+
+## textile design
+
+TODO
 
 ## resources
 
-- [Adafruit learning resources](https://learn.adafruit.com/adafruit-huzzah32-esp32-feather)
+- [Adafruit ESP32 learning resources](https://learn.adafruit.com/adafruit-huzzah32-esp32-feather)
+  - [ESP32 pinouts](https://learn.adafruit.com/adafruit-huzzah32-esp32-feather/pinouts)
+  - [ESP32 guide to installing the Arduino IDE](https://learn.adafruit.com/adafruit-huzzah32-esp32-feather/using-with-arduino-ide).
 - [arduino-esp32/.../examples/.../RepeatTimer.ino](https://github.com/espressif/arduino-esp32/blob/master/libraries/ESP32/examples/Timer/RepeatTimer/RepeatTimer.ino)
 
-## how to get started
-
-first, follow the [Adafruit guide to installing the Arduino IDE for this board](https://learn.adafruit.com/adafruit-huzzah32-esp32-feather/using-with-arduino-ide).
-
-TODO...
-
-## physical controller
-
-- general brightness
-- microphone sensitivity
-- mode
-  - x-way switch?
-  - up and down buttons?
-  - single next button?
-  - one mode is "auto-cycle modes" (how long per mode)
-
-## interfaces
-
-- charge value
-- multi-core
-  - how to have one dedicated led message core
-  - how to have other core for audio, wifi, buttons, etc
-- microphones
-  - how to i2s: https://github.com/espressif/arduino-esp32/issues/302
-- apa102c leds
-  - how to send messages to leds
-    - gpio: https://github.com/pololu/apa102-arduino
-    - spi: use spi pinouts with SPI interface: https://learn.adafruit.com/adafruit-huzzah32-esp32-feather/pinouts#i2c-and-spi-pins
-- wireless
-  - how to connect to a wifi network
-  - how to create a mesh (bluetooth)
-- buttons and physical interfaces
-  - rotary encoder
-    - hardware debouncer if we want to save on cpu cycles: http://forum.arduino.cc/index.php/topic,2378.0.html
-    - background reading: http://www.all-electric.com/schematic/debounce.htm
-
-## use cases
-
-- pixel jockey
-  - connect to wifi network
-  - start tcp server to receive Open Pixel Control messages
-  - broadcast Bonjour service with tcp server details
-- collective sensing
-  - if one node has a microphone sensor, they all "hear" each other
-- listening
-  - laughing mode
-  - volume based on human noise level
-- shapes
-  - pillar
-    - easy to daisy chain
-  - hexa / octa yurt / teepee
-    - controller at tip top
-    - strips going down each side
-
-## power
-
-what is the power usage?
