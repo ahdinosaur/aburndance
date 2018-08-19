@@ -8,7 +8,6 @@ TODO:
   - store micros as time
 - store brightness and temperature in settings
 - store params as settings
-- reset to default param not 0 (have default params as variable)
 */
 
 #include "math.h"
@@ -539,8 +538,8 @@ void flashlight () {
   fill_solid(leds_a + (NUM_LEDS_A - flash_length), flash_length, CRGB::White);
   fill_solid(leds_b + (NUM_LEDS_B - flash_length), flash_length, CRGB::White);
 
-  fill_solid(leds_a + flash_length, NUM_LEDS_A - flash_length, CRGB::Black);
-  fill_solid(leds_b + flash_length, NUM_LEDS_B - flash_length, CRGB::Black);
+  fill_solid(leds_a, NUM_LEDS_A - flash_length, CRGB::Black);
+  fill_solid(leds_b, NUM_LEDS_B - flash_length, CRGB::Black);
 }
 
 void fade_all () {
