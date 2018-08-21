@@ -328,6 +328,7 @@ module headers_hole () {
 }
 
 module top_case () {
+  mirror([1, 0, 0])
   difference () {
     union () {
       top();
