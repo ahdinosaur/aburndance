@@ -15,6 +15,8 @@ MEDIUM_TOLERANCE = 1.2;
 SMALL_TOLERANCE = 1.1;
 $fn = 24;
 
+PCB_PITCH = 0.1 * INCHES_TO_MM;
+
 WALL_THICKNESS = 1;
 PCB_LENGTH_X = 2 * INCHES_TO_MM;
 PCB_PIN_OFFSET_X = 0.1 * INCHES_TO_MM;
@@ -28,34 +30,37 @@ USB_SOCKET_LENGTH_Z = 4.55 - BOTTOM_PCB_LENGTH_Z;
 ANTENNA_LENGTH_Z = 2.6 - BOTTOM_PCB_LENGTH_Z;
 MAX_BOTTOM_LENGTH_Z = BATTERY_SOCKET_LENGTH_Z;
 
-BETWEEN_PCB_DISTANCE = 5.4;
+BETWEEN_PCB_DISTANCE = 5.8;
 
 TOP_PCB_LENGTH_Z = 1.8;
 
 MAX_TOP_LENGTH_Z = 1;
 
-WALL_LENGTH_Z = WALL_THICKNESS + MAX_BOTTOM_LENGTH_Z + BETWEEN_PCB_DISTANCE + MAX_TOP_LENGTH_Z;
+TOP_WALL_LENGTH_Z = 3;
 
 PCB_SCREW_SOCKET_DIAMETER = 4;
 PCB_SCREW_SOCKET_Z_LENGTH = MAX_BOTTOM_LENGTH_Z * LARGE_TOLERANCE;
 PCB_SCREW_SOCKET_Z_WALL_LENGTH = 3;
 PCB_SCREW_PLUG_RADIUS = 2.5 * 1.05;
 
+BOTTOM_WALL_LENGTH_Z = PCB_SCREW_SOCKET_Z_LENGTH + BETWEEN_PCB_DISTANCE + MAX_TOP_LENGTH_Z;
+
+
 EXTERNAL_SCREW_SOCKET_RADIUS = 8;
 EXTERNAL_SCREW_PLUG_RADIUS = 5;
 EXTERNAL_CONNECTOR_THICKNESS = 4;
 
-EXTERNAL_CONNECTORS= [
+BOTTOM_EXTERNAL_CONNECTORS= [
   // side connectors
   [
     0,
     PCB_LENGTH_Y / 2 + WALL_THICKNESS,
-    WALL_LENGTH_Z
+    BOTTOM_WALL_LENGTH_Z
   ],
   [
     0,
     -PCB_LENGTH_Y / 2 - WALL_THICKNESS,
-    WALL_LENGTH_Z
+    BOTTOM_WALL_LENGTH_Z
   ],
   // body connectors
   [
@@ -78,6 +83,20 @@ EXTERNAL_CONNECTORS= [
     (1/2) * PCB_LENGTH_Y + WALL_THICKNESS,
     0
   ],
+];
+
+TOP_EXTERNAL_CONNECTORS = [
+  // side connectors
+  [
+    0,
+    PCB_LENGTH_Y / 2 + WALL_THICKNESS,
+    TOP_WALL_LENGTH_Z
+  ],
+  [
+    0,
+    -PCB_LENGTH_Y / 2 - WALL_THICKNESS,
+    TOP_WALL_LENGTH_Z
+  ]
 ];
 
 PCB_EDGE_RADIUS = sqrt(pow(PCB_PIN_OFFSET_X, 2) + pow(PCB_PIN_OFFSET_Y, 2));
@@ -153,21 +172,25 @@ module bottom(){
 	}
 }
 
+module top () {
+  bottom();
+}
+
 module inner_body () {
   rounded_box(
     PCB_PINS,
     radius=PCB_EDGE_RADIUS * (1/SMALL_TOLERANCE),
-    height=WALL_LENGTH_Z + WALL_THICKNESS
+    height=BOTTOM_WALL_LENGTH_Z + WALL_THICKNESS
   );
 }
 
-module bumper(){
+module bumper(height){
 	difference(){
     translate([0,0, -WALL_THICKNESS])
 		rounded_box(
       PCB_PINS,
       radius=PCB_EDGE_RADIUS * (1/SMALL_TOLERANCE) + WALL_THICKNESS,
-      height=WALL_LENGTH_Z + WALL_THICKNESS
+      height=height + WALL_THICKNESS
     );
 
     inner_body();
@@ -187,21 +210,21 @@ module usb_hole () {
     cube([length_x, length_y, length_z]);
 }
 
-module external_connectors () {
+module external_connectors (positions) {
   difference () {
     union () {
       for (i = [0:5]) {
         translate(
           [
-            EXTERNAL_CONNECTORS[i][0],
-            EXTERNAL_CONNECTORS[i][1],
+            positions[i][0],
+            positions[i][1],
             -WALL_THICKNESS
           ]
         )
         difference () {
           cylinder(
             r = EXTERNAL_SCREW_SOCKET_RADIUS,
-            h = max(EXTERNAL_CONNECTORS[i][2], EXTERNAL_CONNECTOR_THICKNESS) + WALL_THICKNESS
+            h = max(positions[i][2], EXTERNAL_CONNECTOR_THICKNESS) + WALL_THICKNESS
           );
           
           translate([0, 0, -1/2 * INFINITY])
@@ -217,12 +240,12 @@ module external_connectors () {
   }
 }
 
-module PCB_case(){
+module bottom_case(){
 	difference(){ 
 		// frame
 		union(){
       bottom();
-			bumper();
+			bumper(height = BOTTOM_WALL_LENGTH_Z);
 			
       for (i=[0: 1]){
         place_pin(i) standoff();
@@ -230,7 +253,7 @@ module PCB_case(){
 
       stand();
       
-      external_connectors();
+      external_connectors(BOTTOM_EXTERNAL_CONNECTORS);
 		}
     
     /*
@@ -245,6 +268,82 @@ module PCB_case(){
 	}
 }
 
-echo(pcb_edge_radius = PCB_EDGE_RADIUS);
+module encoder_hole () {
+  encoder_length = 15;
+  
+  translate(
+    [
+      (-1/2) * PCB_LENGTH_X + 1,
+      (-1/2) * encoder_length,
+      (-1/2) * INFINITY
+    ]
+  )
+  cube(
+    [
+      encoder_length,
+      encoder_length,
+      INFINITY
+    ]
+  );
+}
 
-PCB_case();
+module buttons_hole () {
+  buttons_length_x = 33;
+  buttons_length_y = 8 * MEDIUM_TOLERANCE;
+
+  translate(
+    [
+      (1/2) * PCB_LENGTH_X - buttons_length_x,
+      -2 * PCB_PITCH * MEDIUM_TOLERANCE,
+      (-1/2) * INFINITY
+    ]
+  )
+  cube(
+    [
+      buttons_length_x,
+      buttons_length_y,
+      INFINITY
+    ]
+  );
+}
+
+module headers_hole () {
+  headers_length_x = 9 * PCB_PITCH * SMALL_TOLERANCE;
+  headers_length_y = 1 * PCB_PITCH * MEDIUM_TOLERANCE;
+
+  translate(
+    [
+      (1/2) * PCB_LENGTH_X - headers_length_x - 2 * PCB_PITCH,
+      (3/2) * PCB_PITCH * SMALL_TOLERANCE,
+      (-1/2) * INFINITY
+    ]
+  )
+  cube(
+    [
+      headers_length_x,
+      headers_length_y,
+      INFINITY
+    ]
+  );
+}
+
+module top_case () {
+  difference () {
+    union () {
+      top();
+      bumper(height = TOP_WALL_LENGTH_Z);
+      
+      external_connectors(TOP_EXTERNAL_CONNECTORS);
+    }
+    
+    encoder_hole();
+    buttons_hole();
+    headers_hole();
+  }
+}
+
+echo(pcb_edge_radius = PCB_EDGE_RADIUS);
+echo(bottom_wall_length_z = BOTTOM_WALL_LENGTH_Z);
+
+// bottom_case();
+top_case();
