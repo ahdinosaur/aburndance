@@ -7,10 +7,12 @@ use <hull.scad>
 // 19mm
 
 // PLUG and SOCKET
-INFINITESIMAL = 0.0001;
+INFINITESIMAL = 0.001;
 INFINITY = 100;
 INCHES_TO_MM = 25.4;
-LARGE_TOLERANCE = 1.1;
+LARGE_TOLERANCE = 1.4;
+MEDIUM_TOLERANCE = 1.2;
+SMALL_TOLERANCE = 1.1;
 $fn = 24;
 
 WALL_THICKNESS = 2;
@@ -24,7 +26,7 @@ BATTERY_SOCKET_LENGTH_Z = 7.25 - BOTTOM_PCB_LENGTH_Z;
 USB_SOCKET_LENGTH_Y = 8;
 USB_SOCKET_LENGTH_Z = 4.42 - BOTTOM_PCB_LENGTH_Z;
 ANTENNA_LENGTH_Z = 2.6 - BOTTOM_PCB_LENGTH_Z;
-MAX_BOTTOM_LENGTH_Z = BATTERY_SOCKET_LENGTH_Z + LARGE_TOLERANCE;
+MAX_BOTTOM_LENGTH_Z = BATTERY_SOCKET_LENGTH_Z;
 
 BETWEEN_PCB_DISTANCE = 10;
 
@@ -36,7 +38,7 @@ MAX_TOP_LENGTH_Z = 1;
 WALL_LENGTH_Z = 10;
 
 SCREW_SOCKET_DIAMETER = 4;
-SCREW_SOCKET_Z_LENGTH = MAX_BOTTOM_LENGTH_Z;
+SCREW_SOCKET_Z_LENGTH = MAX_BOTTOM_LENGTH_Z * LARGE_TOLERANCE;
 SCREW_SOCKET_Z_WALL_LENGTH = 3;
 SCREW_PLUG_RADIUS = 2.5 * 1.05;
 
@@ -73,15 +75,29 @@ module foot () {
 	cylinder(d=2 * PCB_EDGE_RADIUS, h=WALL_THICKNESS);
 }
 
-module standoff (height = SCREW_SOCKET_Z_LENGTH) {
-	cylinder(d1=PCB_EDGE_RADIUS * 2, d2=SCREW_SOCKET_DIAMETER, h=SCREW_SOCKET_Z_WALL_LENGTH);
-	cylinder(d=SCREW_SOCKET_DIAMETER, h=height);
+module standoff () {
+	cylinder(d1=2 * PCB_EDGE_RADIUS, d2=SCREW_SOCKET_DIAMETER, h=SCREW_SOCKET_Z_WALL_LENGTH);
+	cylinder(d=SCREW_SOCKET_DIAMETER, h=SCREW_SOCKET_Z_LENGTH);
 }
 
 module stand () {
   hull() {
     for (i=[2: 3]) {
-      place(i) standoff(height = SCREW_SOCKET_Z_LENGTH - ANTENNA_LENGTH_Z);
+      place(i)
+      translate(
+        [
+          - PCB_EDGE_RADIUS,
+          - PCB_EDGE_RADIUS,
+          0
+        ]
+      )
+      cube(
+        [
+          2 * PCB_EDGE_RADIUS,
+          2 * PCB_EDGE_RADIUS,
+          SCREW_SOCKET_Z_LENGTH - ANTENNA_LENGTH_Z
+        ]
+      );
     }
   }
 }
@@ -101,16 +117,29 @@ module bumper(){
     translate([0,0, -WALL_THICKNESS])
 		rounded_box(
       PCB_PINS,
-      radius=WALL_THICKNESS + PCB_EDGE_RADIUS,
-      height=WALL_LENGTH_Z
+      radius=PCB_EDGE_RADIUS + WALL_THICKNESS,
+      height=WALL_LENGTH_Z + WALL_THICKNESS
     );
 
 		rounded_box(
       PCB_PINS,
       radius=PCB_EDGE_RADIUS,
-      height=WALL_LENGTH_Z
+      height=WALL_LENGTH_Z + WALL_THICKNESS
     );
 	}
+}
+
+module usb_hole () {
+  length_x = 2 * WALL_THICKNESS;
+  length_y = USB_SOCKET_LENGTH_Y * SMALL_TOLERANCE;
+  length_z = USB_SOCKET_LENGTH_Z * LARGE_TOLERANCE;
+  
+  offset_x = PCB_LENGTH_X / 2;
+  offset_y = - length_y / 2;
+  offset_z = (SCREW_SOCKET_Z_LENGTH * SMALL_TOLERANCE) - length_z;
+  
+  translate([offset_x, offset_y, offset_z])
+    cube([length_x, length_y, length_z]);
 }
 
 module PCB_case(){
@@ -130,19 +159,10 @@ module PCB_case(){
 		for (i=[0: 1]){
 			place(i) cylinder(d=SCREW_PLUG_RADIUS, h=INFINITY, center=true);
 		}
+    
+    
     // difference usb
-    translate([
-      PCB_LENGTH_X / 2,
-      -USB_SOCKET_LENGTH_Y / 2,
-      SCREW_SOCKET_Z_LENGTH - USB_SOCKET_LENGTH_Z
-    ])
-    cube(
-      [
-        2 * WALL_THICKNESS,
-        USB_SOCKET_LENGTH_Y,
-        USB_SOCKET_LENGTH_Z
-      ]
-    ); 
+    usb_hole();
 	}
 }
 
