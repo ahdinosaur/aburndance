@@ -346,5 +346,5 @@ module top_case () {
 echo(pcb_edge_radius = PCB_EDGE_RADIUS);
 echo(bottom_wall_length_z = BOTTOM_WALL_LENGTH_Z);
 
-// bottom_case();
-top_case();
+bottom_case();
+// top_case();
